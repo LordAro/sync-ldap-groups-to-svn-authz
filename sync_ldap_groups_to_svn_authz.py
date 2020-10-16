@@ -122,6 +122,19 @@ application_description = (
 ################################################################################
 
 
+def verbose_msg(msg):
+    if verbose:
+        if is_outfile_specified:
+            sys.stdout.write(msg)
+        else:
+            sys.stderr.write(msg)
+
+
+def info_msg(msg):
+    if not silent:
+        sys.stderr.write(msg)
+
+
 def bind():
     """This function will bind to the LDAP instance and return an ldapobject."""
 
@@ -129,11 +142,7 @@ def bind():
 
     ldapobject.bind_s(bind_dn, bind_password)
 
-    if verbose:
-        if is_outfile_specified:
-            sys.stdout.write("Successfully bound to %s...\n" % url)
-        else:
-            sys.stderr.write("Successfully bound to %s...\n" % url)
+    verbose_msg("Successfully bound to %s...\n" % url)
 
     return ldapobject
 
@@ -147,15 +156,10 @@ def search_for_groups(ldapobject):
     groups = get_ldap_search_resultset(base_dn, group_query, ldapobject)
 
     if not groups:
-        if not silent:
-            sys.stderr.write("The group_query %s did not return any results.\n" % group_query)
+        info_msg("The group_query %s did not return any results.\n" % group_query)
         return
 
-    if verbose:
-        if is_outfile_specified:
-            sys.stdout.write("%d groups found.\n" % len(groups))
-        else:
-            sys.stderr.write("%d groups found.\n" % len(groups))
+    verbose_msg("%d groups found.\n" % len(groups))
 
     return groups
 
@@ -171,15 +175,10 @@ def get_groups(ldapobject):
         try:
             groups.extend(get_ldap_search_resultset(group_dn, group_query, ldapobject, ldap.SCOPE_BASE))
         except ldap.NO_SUCH_OBJECT as e:
-            if not silent:
-                sys.stderr.write("Couldn't find a group with DN %s.\n" % group_dn)
+            info_msg("Couldn't find a group with DN %s.\n" % group_dn)
             raise e
 
-    if verbose:
-        if is_outfile_specified:
-            sys.stdout.write("%d groups found.\n" % len(groups))
-        else:
-            sys.stderr.write("%d groups found.\n" % len(groups))
+    verbose_msg("%d groups found.\n" % len(groups))
 
     return groups
 
@@ -200,11 +199,7 @@ def get_members_from_group(group, ldapobject):
     themselves"""
     members = []
     group_members = []
-    if verbose:
-        if is_outfile_specified:
-            sys.stdout.write("+")
-        else:
-            sys.stderr.write("+")
+    verbose_msg("+")
     if group_member_attribute in group:
         group_members = group[group_member_attribute]
 
@@ -218,17 +213,10 @@ def get_members_from_group(group, ldapobject):
                 attrs = user[0][1]
 
                 if userid_attribute in attrs:
-                    if verbose:
-                        if is_outfile_specified:
-                            sys.stdout.write(".")
-                        else:
-                            sys.stderr.write(".")
+                    verbose_msg(".")
                     members.append(str.lower(attrs[userid_attribute][0]))
                 else:
-                    if not silent:
-                        sys.stderr.write(
-                            "[WARNING]: %s does not have the %s attribute...\n" % (user[0][0], userid_attribute)
-                        )
+                    info_msg("[WARNING]: %s does not have the %s attribute...\n" % (user[0][0], userid_attribute))
             else:
                 # Check to see if this member is really a group
                 mg = get_ldap_search_resultset(member, group_query, ldapobject)
@@ -244,24 +232,17 @@ def get_members_from_group(group, ldapobject):
                         try:
                             members.append("GROUP:" + mg[0][0])
                         except TypeError:
-                            if not silent:
-                                sys.stderr.write("[WARNING]: TypeError with %s...\n" % mg[0][0])
+                            info_msg("[WARNING]: TypeError with %s...\n" % mg[0][0])
                 else:
-                    if not silent:
-                        sys.stderr.write(
-                            "[WARNING]: %s is a member of %s but is neither a group "
-                            "nor a user.\n" % (member, group["cn"][0])
-                        )
+                    info_msg(
+                        "[WARNING]: %s is a member of %s but is neither a group nor a user.\n"
+                        % (member, group["cn"][0])
+                    )
         except ldap.LDAPError:
-            if not silent:
-                sys.stderr.write("[WARNING]: %s object was not found...\n" % member)
+            info_msg("[WARNING]: %s object was not found...\n" % member)
     # uniq values
     members = sorted(list(set(members)))
-    if verbose:
-        if is_outfile_specified:
-            sys.stdout.write("-")
-        else:
-            sys.stderr.write("-")
+    verbose_msg("-")
     return members
 
 
@@ -273,18 +254,10 @@ def create_group_model(groups, ldapobject):
 
     if groups:
         for group in groups:
-            if verbose:
-                if is_outfile_specified:
-                    sys.stdout.write("[INFO]: Processing group %s: " % group[1]["cn"][0])
-                else:
-                    sys.stderr.write("[INFO]: Processing group %s: " % group[1]["cn"][0])
+            verbose_msg("[INFO]: Processing group %s: " % group[1]["cn"][0])
             members = get_members_from_group(group[1], ldapobject)
             memberships.append(members)
-            if verbose:
-                if is_outfile_specified:
-                    sys.stdout.write("\n")
-                else:
-                    sys.stderr.write("\n")
+            verbose_msg("\n")
 
     return (groups, memberships)
 
@@ -432,12 +405,11 @@ def print_group_model(groups, memberships):
                     if groupkey:
                         user = "@" + groupkey
                     else:
-                        if not silent:
-                            sys.stderr.write(
-                                "[WARNING]: subgroup not in search scope: %s. This means "
-                                % memberships[i][j].replace("GROUP:", "")
-                                + "you won't have all members in the SVN group: %s.\n" % short_name
-                            )
+                        info_msg(
+                            "[WARNING]: subgroup not in search scope: %s. This means "
+                            % memberships[i][j].replace("GROUP:", "")
+                            + "you won't have all members in the SVN group: %s.\n" % short_name
+                        )
                 else:
                     user = memberships[i][j]
 
