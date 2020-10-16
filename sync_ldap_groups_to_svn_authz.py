@@ -61,6 +61,9 @@ except ImportError:
 # This is the fully-qualified url to the LDAP server.
 # url = "ldap://localhost:389"
 
+# This determines whether to use starttls.
+# starttls = False
+
 # This is the distinguished name to where the group search will start.
 # base_dn = "DC=subversion,DC=thoughtspark,DC=org"
 
@@ -139,6 +142,9 @@ def bind():
     """This function will bind to the LDAP instance and return an ldapobject."""
 
     ldapobject = ldap.initialize(url)
+
+    if starttls:
+        ldapobject.start_tls_s()
 
     ldapobject.bind_s(bind_dn, bind_password)
 
@@ -476,6 +482,7 @@ def load_cli_properties(parser):
     global bind_dn
     global bind_password
     global url
+    global starttls
     global base_dn
     global group_query
     global group_dns
@@ -495,6 +502,7 @@ def load_cli_properties(parser):
     bind_dn = options.bind_dn
     bind_password = options.bind_password
     url = options.url
+    starttls = options.starttls
     base_dn = options.base_dn
     group_query = options.group_query
     group_dns = options.group_dns
@@ -540,6 +548,14 @@ def create_cli_parser():
         help="The fully-qualified URL (scheme://hostname:port) to "
         "the directory server. "
         "[Example: ldap://localhost:389]",
+    )
+    parser.add_option(
+        "-t",
+        "--starttls",
+        action="store_true",
+        dest="starttls",
+        default=False,
+        help="Connect to the LDAP server with starttls.",
     )
     parser.add_option(
         "-b",
@@ -651,6 +667,8 @@ def are_properties_set():
             return False
         if url is None:
             return False
+        if starttls is None:
+            return False
         if base_dn is None:
             return False
         if group_query is None:
@@ -682,6 +700,8 @@ def get_unset_properties():
         unset_properties += ["bind-dn"]
     if url is None:
         unset_properties += ["url"]
+    if starttls is None:
+        unset_properties += ["starttls"]
     if base_dn is None:
         unset_properties += ["base-dn"]
     if group_query is None:
