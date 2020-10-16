@@ -194,7 +194,16 @@ def get_groups(ldapobject):
 
 def get_ldap_search_resultset(base_dn, group_query, ldapobject, scope=ldap.SCOPE_SUBTREE):
     """This function will return a query result set."""
-    return ldapobject.search_s(base_dn, scope, group_query)
+    result_set = ldapobject.search_s(base_dn, scope, group_query)
+    for dn, result in result_set:
+        for key, value in result.items():
+            # python-ldap claims that it should return strings with Python3, but it does not seem to do so
+            # Therefore, force it where possible.
+            try:
+                result[key] = [v.decode('utf-8') for v in value]
+            except UnicodeDecodeError:
+                result[key] = value
+    return result_set
 
 
 # get_ldap_search_resultset()
