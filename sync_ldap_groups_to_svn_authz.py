@@ -144,17 +144,12 @@ def bind():
 def search_for_groups(ldapobject):
     """This function will search the LDAP directory for group definitions."""
 
-    groups = []
-    result_set = get_ldap_search_resultset(base_dn, group_query, ldapobject)
+    groups = get_ldap_search_resultset(base_dn, group_query, ldapobject)
 
-    if len(result_set) == 0:
+    if not groups:
         if not silent:
             sys.stderr.write("The group_query %s did not return any results.\n" % group_query)
         return
-
-    for i in range(len(result_set)):
-        for entry in result_set[i]:
-            groups.append(entry)
 
     if verbose:
         if is_outfile_specified:
@@ -174,10 +169,7 @@ def get_groups(ldapobject):
     groups = []
     for group_dn in group_dns:
         try:
-            result_set = get_ldap_search_resultset(group_dn, group_query, ldapobject, ldap.SCOPE_BASE)
-            for i in range(len(result_set)):
-                for entry in result_set[i]:
-                    groups.append(entry)
+            groups.extend(get_ldap_search_resultset(group_dn, group_query, ldapobject, ldap.SCOPE_BASE))
         except ldap.NO_SUCH_OBJECT as e:
             if not silent:
                 sys.stderr.write("Couldn't find a group with DN %s.\n" % group_dn)
@@ -197,17 +189,7 @@ def get_groups(ldapobject):
 
 def get_ldap_search_resultset(base_dn, group_query, ldapobject, scope=ldap.SCOPE_SUBTREE):
     """This function will return a query result set."""
-    result_set = []
-    result_id = ldapobject.search(base_dn, scope, group_query)
-
-    while 1:
-        result_type, result_data = ldapobject.result(result_id, 0)
-        if result_type == ldap.RES_SEARCH_ENTRY:
-            result_set.append(result_data)
-        elif result_type == ldap.RES_SEARCH_RESULT:
-            break
-
-    return result_set
+    return ldapobject.search_s(base_dn, scope, group_query)
 
 
 # get_ldap_search_resultset()
@@ -233,7 +215,7 @@ def get_members_from_group(group, ldapobject):
 
             if len(user) == 1:
                 # The member is a user
-                attrs = user[0][0][1]
+                attrs = user[0][1]
 
                 if userid_attribute in attrs:
                     if verbose:
@@ -245,7 +227,7 @@ def get_members_from_group(group, ldapobject):
                 else:
                     if not silent:
                         sys.stderr.write(
-                            "[WARNING]: %s does not have the %s attribute...\n" % (user[0][0][0], userid_attribute)
+                            "[WARNING]: %s does not have the %s attribute...\n" % (user[0][0], userid_attribute)
                         )
             else:
                 # Check to see if this member is really a group
@@ -255,15 +237,15 @@ def get_members_from_group(group, ldapobject):
                     # The member is a group
                     if followgroups:
                         # We walk in this group to add its members
-                        for item in get_members_from_group(mg[0][0][1], ldapobject):
+                        for item in get_members_from_group(mg[0][1], ldapobject):
                             members.append(item)
                     else:
                         # We add the group as itself
                         try:
-                            members.append("GROUP:" + mg[0][0][0])
+                            members.append("GROUP:" + mg[0][0])
                         except TypeError:
                             if not silent:
-                                sys.stderr.write("[WARNING]: TypeError with %s...\n" % mg[0])
+                                sys.stderr.write("[WARNING]: TypeError with %s...\n" % mg[0][0])
                 else:
                     if not silent:
                         sys.stderr.write(
