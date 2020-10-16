@@ -28,7 +28,15 @@
 # THE SOFTWARE.
 ################################################################################
 
-import configparser, datetime, getpass, os, re, sys, tempfile, shutil
+import configparser
+import datetime
+import getpass
+import os
+import re
+import sys
+import tempfile
+import shutil
+
 from optparse import OptionParser
 
 try:
@@ -262,7 +270,7 @@ def get_members_from_group(group, ldapobject):
                             "[WARNING]: %s is a member of %s but is neither a group "
                             "nor a user.\n" % (member, group["cn"][0])
                         )
-        except ldap.LDAPError as error_message:
+        except ldap.LDAPError:
             if not silent:
                 sys.stderr.write("[WARNING]: %s object was not found...\n" % member)
     # uniq values
@@ -280,7 +288,6 @@ def create_group_model(groups, ldapobject):
     and will create a group membership model for each group."""
 
     memberships = []
-    groupmap = create_group_map(groups)
 
     if groups:
         for group in groups:
@@ -344,7 +351,7 @@ def create_group_map(groups):
 
 def simplify_name(name):
     """Creates an authz simple group name."""
-    return name if (keep_names) else re.sub("\W", "", name)
+    return name if (keep_names) else re.sub(r"\W", "", name)
 
 
 # simplify_name()
@@ -368,7 +375,7 @@ def print_group_model(groups, memberships):
     filemode = None
     tmp_fd, tmp_authz_path = tempfile.mkstemp()
 
-    if (authz_path != None) and (authz_path != "None"):
+    if (authz_path is not None) and (authz_path != "None"):
         if os.path.exists(authz_path):
             filemode = os.stat(authz_path)
             file = open(authz_path, "r")
@@ -546,7 +553,7 @@ def load_cli_properties(parser):
     silent = options.silent
     verbose = options.verbose
 
-    is_outfile_specified = (authz_path != None) and (authz_path != "None")
+    is_outfile_specified = (authz_path is not None) and (authz_path != "None")
 
 
 # load_cli_properties()
@@ -686,21 +693,21 @@ def are_properties_set():
     """This function will perform a simple test to make sure none of the
     properties are 'None'."""
     try:
-        if bind_dn == None:
+        if bind_dn is None:
             return False
-        if url == None:
+        if url is None:
             return False
-        if base_dn == None:
+        if base_dn is None:
             return False
-        if group_query == None:
+        if group_query is None:
             return False
-        if group_member_attribute == None:
+        if group_member_attribute is None:
             return False
-        if user_query == None:
+        if user_query is None:
             return False
-        if userid_attribute == None:
+        if userid_attribute is None:
             return False
-    except:
+    except NameError:
         # one of the variables may not exist (i.e. not defined at the start of the script)
         return False
 
@@ -717,19 +724,19 @@ def get_unset_properties():
     """This function returns a list of unset properties necessary to run."""
     unset_properties = []
 
-    if bind_dn == None:
+    if bind_dn is None:
         unset_properties += ["bind-dn"]
-    if url == None:
+    if url is None:
         unset_properties += ["url"]
-    if base_dn == None:
+    if base_dn is None:
         unset_properties += ["base-dn"]
-    if group_query == None:
+    if group_query is None:
         unset_properties += ["group-query"]
-    if group_member_attribute == None:
+    if group_member_attribute is None:
         unset_properties += ["group-member-attribute"]
-    if user_query == None:
+    if user_query is None:
         unset_properties += ["user-query"]
-    if userid_attribute == None:
+    if userid_attribute is None:
         unset_properties += ["userid-attribute"]
 
     return unset_properties
@@ -758,14 +765,14 @@ def main():
             sys.stderr.write("'%s' was not passed\n" % prop)
 
         sys.stderr.write("\n")
-        if parser != None:
+        if parser is not None:
             parser.print_help()
             parser.exit()
 
     # Allow user to type in password if missing
     global bind_password
 
-    if bind_password == None:
+    if bind_password is None:
         bind_password = getpass.getpass("Please provide the bind DN password: ")
 
     ldapobject = None
