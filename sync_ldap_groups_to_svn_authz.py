@@ -114,10 +114,10 @@ except ImportError:
 application_name = "LDAP Groups to Subversion Authz Groups Bridge"
 application_version = "1.3.0"
 application_description = (
-    "The '%s' is a simple script that will query your "
+    f"The '{application_name}' is a simple script that will query your "
     "directory server for group objects and create a "
     "representation of those groups in your Subversion "
-    "authorization (authz) file." % application_name
+    "authorization (authz) file."
 )
 
 ################################################################################
@@ -148,7 +148,7 @@ def bind():
 
     ldapobject.bind_s(bind_dn, bind_password)
 
-    verbose_msg("Successfully bound to %s...\n" % url)
+    verbose_msg(f"Successfully bound to {url}...\n")
 
     return ldapobject
 
@@ -162,10 +162,10 @@ def search_for_groups(ldapobject):
     groups = get_ldap_search_resultset(base_dn, group_query, ldapobject)
 
     if not groups:
-        info_msg("The group_query %s did not return any results.\n" % group_query)
+        info_msg(f"The group_query {group_query} did not return any results.\n")
         return
 
-    verbose_msg("%d groups found.\n" % len(groups))
+    verbose_msg(f"{len(groups)} groups found.\n")
 
     return groups
 
@@ -181,10 +181,10 @@ def get_groups(ldapobject):
         try:
             groups.extend(get_ldap_search_resultset(group_dn, group_query, ldapobject, ldap.SCOPE_BASE))
         except ldap.NO_SUCH_OBJECT as e:
-            info_msg("Couldn't find a group with DN %s.\n" % group_dn)
+            info_msg(f"Couldn't find a group with DN {group_dn}.\n")
             raise e
 
-    verbose_msg("%d groups found.\n" % len(groups))
+    verbose_msg(f"{len(groups)} groups found.\n")
 
     return groups
 
@@ -200,7 +200,7 @@ def get_ldap_search_resultset(base_dn, group_query, ldapobject, scope=ldap.SCOPE
             # python-ldap claims that it should return strings with Python3, but it does not seem to do so
             # Therefore, force it where possible.
             try:
-                result[key] = [v.decode('utf-8') for v in value]
+                result[key] = [v.decode("utf-8") for v in value]
             except UnicodeDecodeError:
                 result[key] = value
     return result_set
@@ -231,7 +231,7 @@ def get_members_from_group(group, ldapobject):
                     verbose_msg(".")
                     members.append(str.lower(attrs[userid_attribute][0]))
                 else:
-                    info_msg("[WARNING]: %s does not have the %s attribute...\n" % (user[0][0], userid_attribute))
+                    info_msg(f"[WARNING]: {user[0][0]} does not have the {userid_attribute} attribute...\n")
             else:
                 # Check to see if this member is really a group
                 mg = get_ldap_search_resultset(member, group_query, ldapobject)
@@ -244,17 +244,13 @@ def get_members_from_group(group, ldapobject):
                             members.append(item)
                     else:
                         # We add the group as itself
-                        try:
-                            members.append("GROUP:" + mg[0][0])
-                        except TypeError:
-                            info_msg("[WARNING]: TypeError with %s...\n" % mg[0][0])
+                        members.append(f"GROUP:{mg[0][0]}")
                 else:
                     info_msg(
-                        "[WARNING]: %s is a member of %s but is neither a group nor a user.\n"
-                        % (member, group["cn"][0])
+                        f"[WARNING]: {member} is a member of {group['cn'][0]} but is neither a group nor a user.\n"
                     )
         except ldap.LDAPError:
-            info_msg("[WARNING]: %s object was not found...\n" % member)
+            info_msg(f"[WARNING]: {member} object was not found...\n")
     # uniq values
     members = sorted(list(set(members)))
     verbose_msg("-")
@@ -269,7 +265,7 @@ def create_group_model(groups, ldapobject):
 
     if groups:
         for group in groups:
-            verbose_msg("[INFO]: Processing group %s: " % group[1]["cn"][0])
+            verbose_msg(f"[INFO]: Processing group {group[1]['cn'][0]}: ")
             members = get_members_from_group(group[1], ldapobject)
             memberships.append(members)
             verbose_msg("\n")
@@ -420,10 +416,10 @@ def print_group_model(groups, memberships):
                     if groupkey:
                         user = "@" + groupkey
                     else:
+                        subgroup = memberships[i][j].replace("GROUP:", "")
                         info_msg(
-                            "[WARNING]: subgroup not in search scope: %s. This means "
-                            % memberships[i][j].replace("GROUP:", "")
-                            + "you won't have all members in the SVN group: %s.\n" % short_name
+                            f"[WARNING]: subgroup not in search scope: {subgroup}. This means "
+                            f"you won't have all members in the SVN group: {short_name}.\n"
                         )
                 else:
                     user = memberships[i][j]
@@ -745,7 +741,7 @@ def main():
         sys.stderr.write("There is not enough information to proceed.\n")
 
         for prop in get_unset_properties():
-            sys.stderr.write("'%s' was not passed\n" % prop)
+            sys.stderr.write(f"'{prop}' was not passed\n")
 
         sys.stderr.write("\n")
         if parser is not None:
@@ -765,7 +761,7 @@ def main():
     try:
         ldapobject = bind()
     except ldap.LDAPError as error_message:
-        sys.stderr.write("Could not connect to %s. Error: %s \n" % (url, error_message))
+        sys.stderr.write(f"Could not connect to {url}. Error: {error_message}\n")
         sys.exit(1)
 
     try:
@@ -774,17 +770,17 @@ def main():
         else:
             groups = search_for_groups(ldapobject)
     except ldap.LDAPError as error_message:
-        sys.stderr.write("Error performing search: %s \n" % error_message)
+        sys.stderr.write(f"Error performing search: {error_message}\n")
         sys.exit(1)
 
     if groups and len(groups) == 0:
-        sys.stderr.write("There were no groups found with the group_query / group_dns " "you supplied.\n")
+        sys.stderr.write("There were no groups found with the group_query / group_dns you supplied.\n")
         sys.exit(1)
 
     try:
         memberships = create_group_model(groups, ldapobject)[1]
     except ldap.LDAPError as error_message:
-        sys.stderr.write("Error creating group model: %s\n" % error_message)
+        sys.stderr.write(f"Error creating group model: {error_message}\n")
         sys.exit(1)
 
     print_group_model(groups, memberships)
