@@ -338,36 +338,44 @@ def print_group_model(groups, memberships):
     text_after_content = ""
 
     file = None
+    tmpfile = None
     filemode = None
     tmp_fd, tmp_authz_path = tempfile.mkstemp()
 
-    if (authz_path is not None) and (authz_path != "None"):
+    if authz_template is not None:
+        if os.path.exists(authz_template):
+            filemode = os.stat(authz_template)
+            file = open(authz_template, "r")
+            tmpfile = open(tmp_authz_path, "w")
+
+    elif (authz_path is not None) and (authz_path != "None"):
         if os.path.exists(authz_path):
             filemode = os.stat(authz_path)
             file = open(authz_path, "r")
             tmpfile = open(tmp_authz_path, "w")
 
-            # Remove previous generated content
-            inside_content = False
-            before_content = True
+    if file is not None and tmpfile is not None:
+        # Remove previous generated content
+        inside_content = False
+        before_content = True
 
-            for line in file.readlines():  # read from the existing file
-                if inside_content:  # currently between header and footer
-                    if line.find(footer) > -1:  # footer found
-                        inside_content = False
+        for line in file.readlines():  # read from the existing file
+            if inside_content:  # currently between header and footer
+                if line.find(footer) > -1:  # footer found
+                    inside_content = False
+            else:
+                if line.find(header_start) > -1:  # header found
+                    inside_content = True
+                    before_content = False
                 else:
-                    if line.find(header_start) > -1:  # header found
-                        inside_content = True
-                        before_content = False
+                    # write the original content to the new file only if it was not auto-generated
+                    if before_content:
+                        tmpfile.write(line)  # found before the header: write directly
                     else:
-                        # write the original content to the new file only if it was not auto-generated
-                        if before_content:
-                            tmpfile.write(line)  # found before the header: write directly
-                        else:
-                            text_after_content += line  # found after the header, write to a temporary variable
+                        text_after_content += line  # found after the header, write to a temporary variable
 
-            file.close()
-            tmpfile.close()
+        file.close()
+        tmpfile.close()
 
     if os.path.exists(tmp_authz_path):
         cp = configparser.ConfigParser()
@@ -496,6 +504,7 @@ def load_cli_properties(parser):
     global userid_attribute
     global followgroups
     global authz_path
+    global authz_template
     global keep_names
     global silent
     global verbose
@@ -516,6 +525,7 @@ def load_cli_properties(parser):
     userid_attribute = options.userid_attribute
     followgroups = options.followgroups
     authz_path = options.authz_path
+    authz_template = options.authz_template
     keep_names = options.keep_names
     silent = options.silent
     verbose = options.verbose
@@ -656,6 +666,11 @@ def create_cli_parser():
         dest="verbose",
         default=False,
         help="Give more details during the execution. Overrides -q .",
+    )
+    parser.add_option(
+        "--template",
+        dest="authz_template",
+        help="The fully-qualified path to the input authz template",
     )
 
     return parser
